@@ -26,6 +26,11 @@ public class AccountController {
     @RequestMapping(value = "/api/info", method = RequestMethod.GET)
     public AccountDTO getInformation(@RequestHeader("Authorization") String token) {
         Account accountByToken = accountService.findByToken(token.replace("Bearer", "").trim());
-        return new AccountDTO(accountByToken);
+        AccountDTO accountDTO = new AccountDTO();
+        accountDTO.setId(accountByToken.getId());
+        accountDTO.setUserName(accountByToken.getUserName());
+        accountDTO.setRole(accountByToken.getRole());
+        accountDTO.setStatus(accountByToken.getStatus());
+        return accountDTO;
     }
 }

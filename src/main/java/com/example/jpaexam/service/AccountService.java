@@ -35,7 +35,8 @@ public class AccountService {
             if (credential.isExpired()) {
                 return null;
             }
-            return accountRepository.findById(credential.getUserId()).orElse(null);
+            Account account = accountRepository.findById(credential.getUserId()).orElse(null);
+            return account;
         }
         return null;
     }
