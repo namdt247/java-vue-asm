@@ -1,22 +1,31 @@
 package com.example.jpaexam.controller;
 
+import com.example.jpaexam.dto.AccountDTO;
+import com.example.jpaexam.dto.CredentialDTO;
+import com.example.jpaexam.dto.LoginDTO;
+import com.example.jpaexam.entity.Account;
 import com.example.jpaexam.service.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @CrossOrigin
 @RestController
-@RequestMapping(value = "/api/login")
 public class AccountController {
     @Autowired
     private AccountService accountService;
 
-    @RequestMapping(method = RequestMethod.POST)
-    public String getToken(@RequestParam("username") final String username, @RequestParam("password") final String password) {
-        String token = accountService.login(username, password);
-        if (token.isEmpty() || token.length() == 0) {
-            return "Token not found";
+    @RequestMapping(value = "/auth/login", method = RequestMethod.POST)
+    public CredentialDTO login(@RequestBody LoginDTO loginDTO) {
+        CredentialDTO credential = accountService.login(loginDTO);
+        if (credential == null) {
+            return null;
         }
-        return token;
+        return credential;
+    }
+
+    @RequestMapping(value = "/api/info", method = RequestMethod.GET)
+    public AccountDTO getInformation(@RequestHeader("Authorization") String token) {
+        Account accountByToken = accountService.findByToken(token.replace("Bearer", "").trim());
+        return new AccountDTO(accountByToken);
     }
 }

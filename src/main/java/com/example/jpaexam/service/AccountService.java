@@ -1,16 +1,18 @@
 package com.example.jpaexam.service;
 
+import com.example.jpaexam.dto.CredentialDTO;
+import com.example.jpaexam.dto.LoginDTO;
 import com.example.jpaexam.entity.Account;
 import com.example.jpaexam.entity.Credential;
 import com.example.jpaexam.repository.AccountRepository;
 import com.example.jpaexam.repository.CredentialRepository;
+import com.example.jpaexam.util.TimeHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Calendar;
+import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,39 +20,46 @@ import java.util.UUID;
 @Configurable
 public class AccountService {
     @Autowired
-    AccountRepository accountRepository;
+    private AccountRepository accountRepository;
 
     @Autowired
-    PasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
 
+    @Autowired
     private CredentialRepository credentialRepository;
 
-    public Boolean create(Account account) {
-        try {
-            accountRepository.save(account);
-            return true;
-        } catch (Exception ex) {
-            return false;
+    public Account findByToken(String accessToken) {
+        Optional<Credential> credentialOptional = credentialRepository.findById(accessToken);
+        if (credentialOptional.isPresent()) {
+            Credential credential = credentialOptional.get();
+            if (credential.isExpired()) {
+                return null;
+            }
+            return accountRepository.findById(credential.getUserId()).orElse(null);
         }
+        return null;
+    }
+    public Account create(Account account) {
+        String password = account.getPasswordHash();
+        account.setPasswordHash(passwordEncoder.encode(password));
+        return accountRepository.save(account);
     }
 
-    public String login(String username, String password) {
-        Optional<Account> optionalAccount = accountRepository.findAccountByUserName(username);
-
-        if (optionalAccount.isPresent()) {
-            Account account = optionalAccount.get();
-            String encoded = new BCryptPasswordEncoder().encode(password);
-            if (encoded != account.getPasswordHash()) {
-                return "Wrong password";
-            }
-            String token = UUID.randomUUID().toString();
-            Credential credential = new Credential();
-            credential.setAccount(account);
-            credential.setTokenKey(token);
-            credential.setUserId(account.getId());
-            credentialRepository.save(credential);
-            return token;
+    public CredentialDTO login(LoginDTO loginDTO) {
+        Optional<Account> accountOptional = accountRepository.findAccountByUserName(loginDTO.getUserName());
+        if (!accountOptional.isPresent()) {
+            return null;
         }
-        return "";
+        Account account = accountOptional.get();
+        if (!passwordEncoder.matches(loginDTO.getPassword(), account.getPasswordHash())) {
+            return null;
+        }
+        Credential credential = new Credential();
+        credential.setTokenKey(UUID.randomUUID().toString());
+        credential.setAccount(account);
+        credential.setCreatedAt(new Date());
+        credential.setExpiredAt(TimeHelper.addDaysToCurrentTime(7)); // add 7 days
+        Credential saved = credentialRepository.save(credential);
+        return new CredentialDTO(saved);
     }
 }
